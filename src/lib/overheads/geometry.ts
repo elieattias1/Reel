@@ -142,3 +142,56 @@ export function pointInRect(
     point.y <= rect.y + rect.height
   );
 }
+
+/**
+ * Extends the infinite line through `a` and `b` until it meets the
+ * boundary of `rect` on both ends — AxisLine's "extendTo: walls"
+ * (components.md). Liang-Barsky clipping with the segment's parametric
+ * range left unbounded instead of clamped to [0, 1]. Null if `a === b`
+ * (no direction to extend) or the line never crosses the rect (parallel
+ * and outside it).
+ */
+export function extendLineToRect(
+  a: Point2D,
+  b: Point2D,
+  rect: { x: number; y: number; width: number; height: number }
+): [Point2D, Point2D] | null {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  if (dx === 0 && dy === 0) return null;
+
+  const xmin = rect.x;
+  const xmax = rect.x + rect.width;
+  const ymin = rect.y;
+  const ymax = rect.y + rect.height;
+
+  let t0 = -Infinity;
+  let t1 = Infinity;
+
+  const edges: [number, number][] = [
+    [-dx, a.x - xmin],
+    [dx, xmax - a.x],
+    [-dy, a.y - ymin],
+    [dy, ymax - a.y],
+  ];
+
+  for (const [p, q] of edges) {
+    if (p === 0) {
+      if (q < 0) return null;
+      continue;
+    }
+    const r = q / p;
+    if (p < 0) {
+      t0 = Math.max(t0, r);
+    } else {
+      t1 = Math.min(t1, r);
+    }
+  }
+
+  if (t0 > t1) return null;
+
+  return [
+    { x: a.x + t0 * dx, y: a.y + t0 * dy },
+    { x: a.x + t1 * dx, y: a.y + t1 * dy },
+  ];
+}

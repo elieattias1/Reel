@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   conePolygon,
   distanceToSegment,
+  extendLineToRect,
   fovDeg,
   headingToUnitVector,
   normalizeDeg,
@@ -126,6 +127,38 @@ describe("distanceToSegment", () => {
 
   it("clamps to the nearest endpoint beyond the segment's ends", () => {
     expect(distanceToSegment({ x: -5, y: 0 }, { x: 0, y: 0 }, { x: 10, y: 0 })).toBeCloseTo(5, 9);
+  });
+});
+
+describe("extendLineToRect", () => {
+  const rect = { x: 0, y: 0, width: 10, height: 10 };
+
+  it("extends a line through two interior points out to the rect boundary", () => {
+    const [p1, p2] = extendLineToRect({ x: 4, y: 4 }, { x: 6, y: 6 }, rect)!;
+    expect([p1, p2]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ x: 0, y: 0 }),
+        expect.objectContaining({ x: 10, y: 10 }),
+      ])
+    );
+  });
+
+  it("handles an axis-aligned line", () => {
+    const [p1, p2] = extendLineToRect({ x: 3, y: 5 }, { x: 7, y: 5 }, rect)!;
+    expect([p1, p2]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ x: 0, y: 5 }),
+        expect.objectContaining({ x: 10, y: 5 }),
+      ])
+    );
+  });
+
+  it("returns null for two identical points", () => {
+    expect(extendLineToRect({ x: 1, y: 1 }, { x: 1, y: 1 }, rect)).toBeNull();
+  });
+
+  it("returns null for a line that never crosses the rect", () => {
+    expect(extendLineToRect({ x: -5, y: 20 }, { x: -3, y: 20 }, rect)).toBeNull();
   });
 });
 

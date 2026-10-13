@@ -11,6 +11,7 @@ import { createClient } from "@supabase/supabase-js";
 
 config({ path: ".env.local" });
 import { computeSceneLineRanges } from "../src/lib/scripts/line-numbers";
+import { locateSceneLinesWithAI } from "../src/lib/scripts/locate-scene-lines";
 
 async function main() {
   const supabase = createClient(
@@ -30,14 +31,23 @@ async function main() {
 
     const { data: scenes, error: scenesError } = await supabase
       .from("scenes")
-      .select("id, scene_number, line_start, line_end")
+      .select("id, scene_number, synopsis, line_start, line_end")
       .eq("script_version_id", version.id)
       .order("scene_number");
     if (scenesError) throw scenesError;
     if (!scenes || scenes.length === 0) continue;
     if (scenes.every((s) => s.line_start !== null)) continue;
 
-    const ranges = computeSceneLineRanges(version.raw_text, scenes.length);
+    let ranges = computeSceneLineRanges(version.raw_text, scenes.length);
+    if (ranges.some((r) => r === null)) {
+      console.log(`  No heading match for every scene in version ${version.id} — falling back to AI line location.`);
+      const aiRanges = await locateSceneLinesWithAI(
+        version.raw_text,
+        scenes.map((s) => ({ scene_number: s.scene_number, synopsis: s.synopsis ?? "" }))
+      );
+      ranges = scenes.map((s) => aiRanges.get(s.scene_number) ?? null);
+    }
+
     for (let i = 0; i < scenes.length; i++) {
       const range = ranges[i];
       if (!range) continue;

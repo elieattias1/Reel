@@ -9,7 +9,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col bg-white text-zinc-900">{children}</body>
+      {/* h-full (not min-h-full): <main className="overflow-y-auto"> in the
+          project layout, and components like ChatPanel/OverheadWorkspace
+          that put their own overflow-y-auto on an inner pane, both assume a
+          genuinely bounded height cascades down from here. min-h-full only
+          sets a floor, so body (and everything under it) grew taller than
+          the viewport instead of clipping/scrolling internally. */}
+      <body className="h-full flex flex-col bg-white text-zinc-900">{children}</body>
     </html>
   );
 }

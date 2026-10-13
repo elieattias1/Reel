@@ -48,12 +48,88 @@
   --radius-md: 10px;
   --radius-lg: 16px;
   --radius-xl: 22px;
+
+  /* Overhead Shots — character palette (tokens.md). Cameras never use
+     these; identity is the initial letter, never color alone. */
+  --color-character-1: #3e6690;
+  --color-character-2: #5c7a4f;
+  --color-character-3: #92563c;
+  --color-character-4: #6e5b96;
+  --color-character-5: #8a7231;
+  --color-character-6: #3f8278;
+  --color-character-7: #99465b;
+  --color-character-8: #5b6672;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0b0b0d;
     --foreground: #f2f2f4;
+
+    --color-character-1: #7fa8d9;
+    --color-character-2: #9bbe8a;
+    --color-character-3: #d59a79;
+    --color-character-4: #b2a0d6;
+    --color-character-5: #c9af5f;
+    --color-character-6: #86c2b5;
+    --color-character-7: #d7899a;
+    --color-character-8: #a3afbc;
+  }
+}
+
+/* Overhead Shots — diagram stroke weights, cone opacities, validation
+   colors, and motion (tokens.md). Not theme-dependent via @theme inline
+   since they're consumed as raw CSS values by inline SVG attributes,
+   not Tailwind utility classes. */
+:root {
+  --stroke-wall: 4px solid #19191c;
+  --stroke-door-leaf: 3px solid #19191c;
+  --stroke-door-swing: 1.25px dashed #a1a1aa;
+  --stroke-window: 1.5px solid #71717a;
+  --stroke-furniture: 1.5px solid #d4d4d8;
+  --stroke-axis: 1.5px dashed #a1a1aa;
+  --stroke-dolly-track: 2px dashed #52525b;
+
+  --cone-fill-opacity-active: 0.16;
+  --cone-fill-opacity-ghost: 0.07;
+  --cone-stroke-active: 1px solid #4f5fe8;
+  --cone-stroke-ghost: 1px dashed #a1a1aa;
+
+  --validation-warning-marker: #b45309;
+  --validation-warning-marker-bg: #fffaeb;
+  --validation-error-marker: #b91c1c;
+  --validation-error-marker-bg: #fef2f2;
+
+  --motion-duration-shot: 420ms;
+  --motion-ease-shot: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-duration-reduced: 0ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --stroke-wall: 4px solid #f2f2f4;
+    --stroke-door-leaf: 3px solid #f2f2f4;
+    --stroke-door-swing: 1.25px dashed #52525b;
+    --stroke-window: 1.5px solid #a1a1aa;
+    --stroke-furniture: 1.5px solid #3f3f46;
+    --stroke-axis: 1.5px dashed #52525b;
+    --stroke-dolly-track: 2px dashed #a1a1aa;
+
+    --cone-fill-opacity-active: 0.22;
+    --cone-fill-opacity-ghost: 0.1;
+    --cone-stroke-active: 1px solid #6c7ff1;
+    --cone-stroke-ghost: 1px dashed #52525b;
+
+    --validation-warning-marker: #fbbf24;
+    --validation-warning-marker-bg: #3f2d0a;
+    --validation-error-marker: #f87171;
+    --validation-error-marker-bg: #450a0a;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration-shot: 0ms;
   }
 }
 

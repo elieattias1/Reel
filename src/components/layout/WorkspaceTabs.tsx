@@ -9,6 +9,7 @@ const TABS = [
   { href: "cast-crew", label: "Cast & Crew" },
   { href: "budget", label: "Budget" },
   { href: "schedule", label: "Schedule" },
+  { href: "overheads", label: "Overhead Shots" },
   { href: "chat", label: "Chat" },
 ];
 

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BreakdownResult } from "@/lib/agents/breakdown";
-import { computeSceneLineRanges } from "@/lib/scripts/line-numbers";
+import { computeSceneLineRanges, type LineRange } from "@/lib/scripts/line-numbers";
+import { locateSceneLinesWithAI } from "@/lib/scripts/locate-scene-lines";
 
 /**
  * Persists a breakdown result: upserts normalized locations/characters/
@@ -29,7 +30,7 @@ export async function persistBreakdown(
   const characterIdByName = await upsertNamed(supabase, "characters", projectId, characterNames);
   const propIdByName = await upsertNamed(supabase, "props", projectId, propNames);
 
-  const lineRanges = computeSceneLineRanges(rawText, breakdown.scenes.length);
+  const lineRanges = await resolveSceneLineRanges(rawText, breakdown.scenes);
 
   const sceneRows = breakdown.scenes.map((s, i) => ({
     script_version_id: scriptVersionId,
@@ -103,6 +104,29 @@ export async function persistBreakdown(
     crew: breakdown.projected_crew,
     castCount: breakdown.projected_cast.length,
   };
+}
+
+/**
+ * The regex heading scan (computeSceneLineRanges) is free and works for
+ * any normally-formatted screenplay, but finds nothing in source text
+ * with no INT./EXT. sluglines at all — a stage play transcript, an OCR'd
+ * book, a loosely formatted draft. If it can't find a heading for every
+ * scene, fall back to asking Claude to locate them directly.
+ */
+async function resolveSceneLineRanges(
+  rawText: string,
+  scenes: { scene_number: number; synopsis: string }[]
+): Promise<(LineRange | null)[]> {
+  const regexRanges = computeSceneLineRanges(rawText, scenes.length);
+  if (regexRanges.every((r) => r !== null)) return regexRanges;
+
+  try {
+    const aiRanges = await locateSceneLinesWithAI(rawText, scenes);
+    return scenes.map((s) => aiRanges.get(s.scene_number) ?? null);
+  } catch (err) {
+    console.error("[persist-breakdown] AI line-location fallback failed:", err);
+    return regexRanges;
+  }
 }
 
 async function upsertNamed(

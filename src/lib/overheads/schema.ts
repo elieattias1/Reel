@@ -3,17 +3,24 @@ import { z } from "zod";
 /**
  * Shared geometry/data model for Overhead Shots.
  *
- * Coordinate system (binding, per the engineering brief): feet, origin at
- * the set's top-left corner, x increases right, y increases down, heading
- * in degrees with 0 pointing along +x and positive values clockwise. The
- * database, the blocking agent's tools, the SVG renderer, and
- * `design/overheads/sample-scene.json` all use this same system and all
- * validate against the schemas below.
+ * Coordinate system: feet, origin at the set's top-left corner, x
+ * increases right, y increases down. Heading is 0° = up (−y, "north" on
+ * the floor plan), 90° = right (+x), 180° = down (+y), 270° = left (−x),
+ * increasing clockwise — this is `components.md`'s binding FovCone
+ * formula, NOT the brief's literal "0 pointing along +x" text; see
+ * lib/overheads/geometry.ts's top comment and README's "Conflicts
+ * between design and brief" for why. The database, the blocking agent's
+ * tools, the SVG renderer, and `design/overheads/sample-scene.json` all
+ * use this same convention and all validate against the schemas below.
+ * Every field below that the blocking agent fills in carries a
+ * `.describe()` with this convention spelled out again — Zod descriptions
+ * become the MCP tool's JSON-schema `description`, which is the only way
+ * the agent actually sees this; a comment here is invisible to it.
  */
 
 export const Point2D = z.object({
-  x: z.number(),
-  y: z.number(),
+  x: z.number().describe("Feet from the set's left edge (origin x=0)."),
+  y: z.number().describe("Feet from the set's top edge (origin y=0)."),
 });
 export type Point2D = z.infer<typeof Point2D>;
 
@@ -109,9 +116,13 @@ export type MovementPath = z.infer<typeof MovementPathSchema>;
  */
 export const CameraSchema = z.object({
   id: z.string(),
-  x: z.number(),
-  y: z.number(),
-  headingDeg: z.number(),
+  x: z.number().describe("Feet from the set's left edge (origin x=0)."),
+  y: z.number().describe("Feet from the set's top edge (origin y=0)."),
+  headingDeg: z
+    .number()
+    .describe(
+      "Direction the camera points, in degrees clockwise: 0 = up/−y (\"north\" on the floor plan), 90 = right/+x, 180 = down/+y, 270 = left/−x. To face a subject at (subjectX, subjectY) from the camera at (x, y), compute dx=subjectX-x, dy=subjectY-y and set headingDeg ≈ atan2(dx, -dy) in degrees (normalized to 0-360) — do not guess."
+    ),
   lensMm: z.number().positive(),
   height: z.string().min(1),
   support: z.string().min(1),
@@ -132,16 +143,18 @@ export type Camera = z.infer<typeof CameraSchema>;
 
 export const ActorBeatSchema = z.object({
   beat: z.number().int().positive(),
-  x: z.number(),
-  y: z.number(),
+  x: z.number().describe("Feet from the set's left edge (origin x=0)."),
+  y: z.number().describe("Feet from the set's top edge (origin y=0)."),
 });
 export type ActorBeat = z.infer<typeof ActorBeatSchema>;
 
 export const ActorSchema = z.object({
   characterId: z.string(),
-  x: z.number(),
-  y: z.number(),
-  facingDeg: z.number(),
+  x: z.number().describe("Feet from the set's left edge (origin x=0)."),
+  y: z.number().describe("Feet from the set's top edge (origin y=0)."),
+  facingDeg: z
+    .number()
+    .describe("Direction the actor faces, same convention as a camera's headingDeg: 0=up/−y, 90=right/+x, 180=down/+y, 270=left/−x, clockwise."),
   path: z.array(ActorBeatSchema).optional(),
 });
 export type Actor = z.infer<typeof ActorSchema>;

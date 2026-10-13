@@ -19,10 +19,10 @@ export default async function ProjectLayout({
   if (!project) notFound();
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <TopNav email={auth.user.email} title={project.name} />
       <WorkspaceTabs projectId={id} />
-      <main className="flex-1 overflow-y-auto">{children}</main>
+      <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
     </div>
   );
 }

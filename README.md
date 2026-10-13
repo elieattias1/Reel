@@ -115,18 +115,22 @@ to local disk (that's what makes `resume`/`fork` work). That means:
 ```
 src/
   app/                     Routes (App Router)
-    projects/[id]/         Workspace: script, cast-crew, budget, schedule, chat
-    api/projects/[id]/     Upload, export, chat, chat/resolve, schedule/move
+    projects/[id]/         Workspace: script, cast-crew, budget, schedule, overheads, chat
+    api/projects/[id]/     Upload, export, chat(+resolve), overheads/chat, overheads/scenes/[sceneId], schedule/move
   components/
     reel/                  The Reel design system component kit
     layout/                Shared chrome (top nav, workspace tabs)
+    overheads/             Diagram components (CameraGlyph, FovCone, ...), OverheadCanvas,
+                           OverheadWorkspace, BlockingAgentPanel, useShotTransition, usePlayMovement
   lib/
-    agents/                breakdown.ts, budgeting.ts, chat-agent.ts, apply-change.ts, rate-card.ts
-    overheads/             schema.ts (Zod) — set/camera/actor/shot, shared by DB, agent tools, renderer
+    agents/                breakdown.ts, budgeting.ts, chat-agent.ts, blocking.ts, apply-change.ts, rate-card.ts
+    overheads/             schema.ts (Zod), geometry.ts, validators.ts, db.ts (row<->schema mappers),
+                           characters.ts (palette), labels.ts (setup letters), load-scene.ts (server data loader)
     scripts/extract.ts     PDF (pdf-parse) + Final Draft XML (.fdx) extraction
-    scripts/line-numbers.ts  Scene line-range detection, backfills scenes.line_start/line_end
+    scripts/line-numbers.ts       Regex scene line-range detection
+    scripts/locate-scene-lines.ts AI fallback when the regex finds no headings (e.g. a stage play)
     supabase/              client/server/service/middleware + hand-written types
-supabase/migrations/       0001_init.sql, 0002_overhead_shots.sql
+supabase/migrations/       0001_init.sql ... 0004_overhead_sets_realtime.sql
 scripts/backfill-scene-lines.ts  One-off: re-derive line_start/line_end for scenes that predate 0002
 ```
 
@@ -153,9 +157,32 @@ Built in the order the brief specifies, stopping after each step:
   and `design/overheads/sample-scene.json` validated byte-for-byte against
   the schema in `lib/overheads/schema.test.ts`. `npx tsc --noEmit`,
   `npm run build`, `npm run lint`, `npm test` all clean.
-- [ ] Step 2 — geometry and validators, with tests
-- [ ] Step 3 — renderer and read-only viewer with keyboard navigation
-- [ ] Step 4 — blocking agent with streaming
+- [x] **Step 2 — geometry and validators, with tests.**
+  `lib/overheads/geometry.ts` (FOV/cone geometry, heading helpers,
+  point-in-polygon, point-to-segment distance, line-to-rect extension) and
+  `lib/overheads/validators.ts` (180° line check, cone-overlap warning,
+  out-of-bounds/wall/set-piece error, uncovered-lines info,
+  setup-count/time estimate). 54 unit tests total.
+- [x] **Step 3 — renderer and read-only viewer with keyboard navigation.**
+  `src/components/overheads/` — `OverheadCanvas` composing
+  `CameraGlyph`/`FovCone`/`DollyTrack`/`ActorMark`/`ActorPath`/
+  `SetGeometry`/`AxisLine`/`ScaleBar`/`OrientationMarker`/
+  `ValidationMarker`, plus `OverheadWorkspace` (scene list, shot strip,
+  shot-detail bar) wired in as a new "Overhead Shots" workspace tab at
+  `/projects/[id]/overheads`. Keyboard map (←/→ shot, ↑/↓ scene, A
+  all-setups, Space play) via `useShotTransition` (RAF tween,
+  `prefers-reduced-motion` aware) and `usePlayMovement`.
+- [x] **Step 4 — blocking agent with streaming.** `lib/agents/blocking.ts`
+  — same in-process MCP pattern as `chat-agent.ts`: read tools
+  (`get_scene`, `get_set`, `list_shots`, `get_validation`), draft-write
+  tools allowed outright and versioned (`create_set`, `update_set`,
+  `add_shot`, `update_shot`, `delete_shot`, `reorder_shots`,
+  `apply_coverage_pattern`), and `propose_schedule_impact` gated through
+  the existing deny-and-persist `canUseTool`/`pending_changes`/
+  `ApprovalCard` flow. `add_shot` streams to the client over Supabase
+  Realtime (`BlockingAgentPanel` + `OverheadWorkspace`'s `shots`/`sets`
+  channel subscriptions). Verified end-to-end against a real scene from
+  the Streetcar project — see "Verified against a real scene" below.
 - [ ] Step 5 — edit mode, versions, corrections
 - [ ] Step 6 — coverage, setup estimate, schedule-impact approval
 - [ ] Step 7 — print view
@@ -209,7 +236,54 @@ didn't specify, rather than inventing new visual language:
 
 ### Conflicts between design and brief
 
-None found so far — the design package and the brief's product decisions
-(three-layer model, coordinate system, FOV formula, draft-layer versioning,
-streaming shots, approval-gated schedule impact) agree everywhere they
-overlap.
+- **Heading convention.** The brief's product decision #3 says headingDeg
+  0° points along +x, clockwise. `components.md`'s FovCone formula — far
+  points at `apex + length × (sin(headingDeg), −cos(headingDeg))`, marked
+  "binding, not a style choice" — is read literally 0°=up(−y), clockwise:
+  a different axis, 90° apart. Resolved in favor of the design's formula
+  (see `lib/overheads/geometry.ts`'s top comment); implemented identically
+  in the renderer and validators per the brief's own "use one system
+  everywhere" rule. Discovered reading the two documents, not from the
+  prototype's own pixel coordinates — the hand-authored mockup SVGs turned
+  out not to be internally consistent in scale, so they couldn't settle it
+  empirically.
+
+### Verified against a real scene (2026-10-13)
+
+Ran the full pipeline against a real project (`A Streetcar Named Desire`,
+scene 10) rather than only the sample fixture, which surfaced several
+real bugs the fixture alone never would have:
+
+- **`get_scene` had no line numbers for this script.** It's a stage-play
+  transcript with no INT./EXT. sluglines at all, so the regex heading
+  scan (`computeSceneLineRanges`) found zero headings. Added
+  `lib/scripts/locate-scene-lines.ts`: an AI fallback (one Claude call,
+  the numbered raw text + the scene list) used whenever the regex can't
+  find a heading for every scene — wired into both `persistBreakdown`
+  (new uploads) and `scripts/backfill-scene-lines.ts` (existing data).
+- **The agent had no scene_id when a scene had zero shots.** Chat context
+  only carried the active *shot* id; with no shots yet there was nothing
+  to resolve "this scene" to, and the agent correctly refused to guess.
+  Fixed by always passing the active *scene* id too (`sendBlockingMessage`'s
+  `activeSceneId`), independent of whether a shot is selected.
+- **The agent never learned the coordinate convention.** `headingDeg` had
+  no description anywhere the model could see — Zod `.describe()` text is
+  the only part of a tool schema the model actually sees, a code comment
+  is invisible to it. Result: a real generation aimed the master shot's
+  camera away from its own subjects. Fixed by adding explicit
+  `.describe()` text (with the exact `atan2(dx, -dy)` formula) to every
+  `x`/`y`/`headingDeg`/`facingDeg` field in `lib/overheads/schema.ts`,
+  plus a reinforcing line in the blocking agent's system prompt.
+- **The client only subscribed to `shots` INSERT, not `sets`.** A scene
+  loaded before its set existed never learned one had been created —
+  `create_set` runs before any `add_shot` calls, so this hit on every
+  first-time generation. Added a second Realtime subscription keyed by
+  `location_id` (migration `0004_overhead_sets_realtime.sql`).
+- **The workspace rendered blank at real viewport sizes.** Root cause:
+  `src/app/layout.tsx`'s `body` used `min-h-full` instead of `h-full`, so
+  the page grew to fit content instead of giving `<main>`'s
+  `overflow-y-auto` (and `ChatPanel`, which already assumed this) a
+  genuinely bounded height — the whole page became one long scroll
+  instead of each pane scrolling internally. This was a latent bug in the
+  existing chat page too, not something introduced here. Fixed `body` to
+  `h-full` and added `min-h-0` down the project layout's flex chain.
