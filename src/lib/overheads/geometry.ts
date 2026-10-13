@@ -42,10 +42,24 @@ export function shortestAngleDeltaDeg(a: number, b: number): number {
   return diff > 180 ? diff - 360 : diff;
 }
 
+/**
+ * Rounds to 9 decimal places — enough precision to be visually exact at
+ * any realistic scale, but enough to collapse the last-bit differences
+ * `Math.sin`/`Math.cos`/`Math.atan2` can produce between engines (e.g.
+ * Node during SSR vs. the browser during hydration), which otherwise
+ * surface as a React hydration mismatch on computed SVG coordinates.
+ * Everything downstream of a rounded value stays identical server/client
+ * since plain +/-/* are bit-exact per the IEEE754/ECMAScript spec — only
+ * the transcendental functions themselves are the actual source of drift.
+ */
+export function roundFloat(n: number): number {
+  return Math.round(n * 1e9) / 1e9;
+}
+
 /** Unit direction vector for a heading, in this app's (0°=up, clockwise) convention. */
 export function headingToUnitVector(headingDeg: number): Point2D {
   const rad = degToRad(headingDeg);
-  return { x: Math.sin(rad), y: -Math.cos(rad) };
+  return { x: roundFloat(Math.sin(rad)), y: roundFloat(-Math.cos(rad)) };
 }
 
 /** A point `distanceFt` away from `origin`, in the direction of `headingDeg`. */

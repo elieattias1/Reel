@@ -1,3 +1,4 @@
+import { roundFloat } from "@/lib/overheads/geometry";
 import type { Set as OverheadSet } from "@/lib/overheads/schema";
 import { toPx } from "./scale";
 
@@ -80,8 +81,8 @@ export function SetGeometry({ set, pxPerFt }: SetGeometryProps) {
         const closedEnd = toPx({ x: door.hinge.x + wallDir.x * door.width, y: door.hinge.y + wallDir.y * door.width }, pxPerFt);
 
         const openRad = (door.openAngleDeg * Math.PI) / 180;
-        const cos = Math.cos(openRad);
-        const sin = Math.sin(openRad);
+        const cos = roundFloat(Math.cos(openRad));
+        const sin = roundFloat(Math.sin(openRad));
         const openDir = {
           x: wallDir.x * cos + swingPerp.x * sin,
           y: wallDir.y * cos + swingPerp.y * sin,

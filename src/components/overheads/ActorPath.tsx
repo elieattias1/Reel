@@ -1,3 +1,4 @@
+import { roundFloat } from "@/lib/overheads/geometry";
 import type { ActorBeat } from "@/lib/overheads/schema";
 import { toPx } from "./scale";
 
@@ -24,12 +25,12 @@ export function ActorPath({ points, color, pxPerFt }: ActorPathProps) {
   const arrowSize = 7;
   const tip = last;
   const back1 = {
-    x: tip.x - arrowSize * Math.cos(angle - Math.PI / 7),
-    y: tip.y - arrowSize * Math.sin(angle - Math.PI / 7),
+    x: roundFloat(tip.x - arrowSize * Math.cos(angle - Math.PI / 7)),
+    y: roundFloat(tip.y - arrowSize * Math.sin(angle - Math.PI / 7)),
   };
   const back2 = {
-    x: tip.x - arrowSize * Math.cos(angle + Math.PI / 7),
-    y: tip.y - arrowSize * Math.sin(angle + Math.PI / 7),
+    x: roundFloat(tip.x - arrowSize * Math.cos(angle + Math.PI / 7)),
+    y: roundFloat(tip.y - arrowSize * Math.sin(angle + Math.PI / 7)),
   };
 
   return (

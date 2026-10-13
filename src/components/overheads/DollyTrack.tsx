@@ -1,3 +1,4 @@
+import { roundFloat } from "@/lib/overheads/geometry";
 import type { Point2D } from "@/lib/overheads/schema";
 import { toPx } from "./scale";
 
@@ -31,8 +32,14 @@ export function DollyTrack({ points, pxPerFt }: DollyTrackProps) {
   const secondLast = px[px.length - 2];
   const angle = Math.atan2(last.y - secondLast.y, last.x - secondLast.x);
   const arrowSize = 8;
-  const back1 = { x: last.x - arrowSize * Math.cos(angle - Math.PI / 7), y: last.y - arrowSize * Math.sin(angle - Math.PI / 7) };
-  const back2 = { x: last.x - arrowSize * Math.cos(angle + Math.PI / 7), y: last.y - arrowSize * Math.sin(angle + Math.PI / 7) };
+  const back1 = {
+    x: roundFloat(last.x - arrowSize * Math.cos(angle - Math.PI / 7)),
+    y: roundFloat(last.y - arrowSize * Math.sin(angle - Math.PI / 7)),
+  };
+  const back2 = {
+    x: roundFloat(last.x - arrowSize * Math.cos(angle + Math.PI / 7)),
+    y: roundFloat(last.y - arrowSize * Math.sin(angle + Math.PI / 7)),
+  };
 
   return (
     <g>
@@ -45,10 +52,10 @@ export function DollyTrack({ points, pxPerFt }: DollyTrackProps) {
         return (
           <line
             key={i}
-            x1={tie.x - tieHalf * Math.cos(perpAngle)}
-            y1={tie.y - tieHalf * Math.sin(perpAngle)}
-            x2={tie.x + tieHalf * Math.cos(perpAngle)}
-            y2={tie.y + tieHalf * Math.sin(perpAngle)}
+            x1={roundFloat(tie.x - tieHalf * Math.cos(perpAngle))}
+            y1={roundFloat(tie.y - tieHalf * Math.sin(perpAngle))}
+            x2={roundFloat(tie.x + tieHalf * Math.cos(perpAngle))}
+            y2={roundFloat(tie.y + tieHalf * Math.sin(perpAngle))}
             stroke="var(--color-zinc-600)"
             strokeWidth={2}
           />
