@@ -1,0 +1,189 @@
+{
+  "set": {
+    "id": "set_streetside_diner",
+    "name": "Streetside Diner — Kitchen & Counter",
+    "units": "ft",
+    "bounds": { "width": 24, "height": 13 },
+    "walls": [
+      { "id": "wall_n1", "x1": 0, "y1": 0, "x2": 12, "y2": 0 },
+      { "id": "wall_n2", "x1": 16, "y1": 0, "x2": 24, "y2": 0 },
+      { "id": "wall_e", "x1": 24, "y1": 0, "x2": 24, "y2": 13 },
+      { "id": "wall_s", "x1": 0, "y1": 13, "x2": 24, "y2": 13 },
+      { "id": "wall_w1", "x1": 0, "y1": 0, "x2": 0, "y2": 7.8 },
+      { "id": "wall_w2", "x1": 0, "y1": 10.2, "x2": 0, "y2": 13 }
+    ],
+    "doors": [
+      {
+        "id": "door_1",
+        "wallId": "wall_w1",
+        "hinge": { "x": 0, "y": 7.8 },
+        "width": 2.4,
+        "swingsInto": "room",
+        "openAngleDeg": 90
+      }
+    ],
+    "windows": [
+      { "id": "window_1", "x1": 12, "y1": 0, "x2": 16, "y2": 0 }
+    ],
+    "setPieces": [
+      { "id": "piece_counter_a", "label": "Counter", "x": 19.6, "y": 0, "width": 4.4, "height": 6.4 },
+      { "id": "piece_counter_b", "label": "Counter", "x": 16, "y": 0, "width": 8, "height": 1.8 },
+      { "id": "piece_table", "label": "Table", "x": 3.8, "y": 4.8, "width": 4, "height": 2.2 },
+      { "id": "piece_fridge", "label": "Fridge", "x": 1, "y": 1, "width": 1.6, "height": 1.6 }
+    ]
+  },
+
+  "characters": [
+    { "id": "maya", "name": "Maya", "initial": "M", "color": { "light": "#3E6690", "dark": "#7FA8D9" } },
+    { "id": "theo", "name": "Theo", "initial": "T", "color": { "light": "#92563C", "dark": "#D59A79" } }
+  ],
+
+  "scene": {
+    "id": "scene_12",
+    "number": "12",
+    "slug": "streetside-diner",
+    "heading": "INT. STREETSIDE DINER - KITCHEN - NIGHT",
+    "setId": "set_streetside_diner",
+    "sensorWidthMm": 24.9
+  },
+
+  "shots": [
+    {
+      "id": "shot_12A",
+      "label": "12A",
+      "title": "Wide — kitchen & table",
+      "shotSize": "wide",
+      "linesCovered": { "start": 1, "end": 4 },
+      "note": "Establish the room before the scene settles.",
+      "setup": {
+        "id": "setup_12A",
+        "x": 3.9, "y": 12.0,
+        "headingDeg": 45,
+        "lensMm": 24,
+        "height": "eye",
+        "support": "sticks",
+        "movementPath": null
+      },
+      "actors": [
+        { "characterId": "maya", "x": 6.0, "y": 5.0, "facingDeg": 160 },
+        { "characterId": "theo", "x": 8.3, "y": 8.7, "facingDeg": 300 }
+      ]
+    },
+    {
+      "id": "shot_12B",
+      "label": "12B",
+      "title": "Medium wide — two shot",
+      "shotSize": "medium_wide",
+      "linesCovered": { "start": 5, "end": 9 },
+      "note": "Holds both actors through the opening exchange.",
+      "setup": {
+        "id": "setup_12B",
+        "x": 13.6, "y": 3.8,
+        "headingDeg": 210,
+        "lensMm": 35,
+        "height": "eye",
+        "support": "sticks",
+        "movementPath": null
+      },
+      "actors": [
+        { "characterId": "maya", "x": 6.0, "y": 5.0, "facingDeg": 160 },
+        { "characterId": "theo", "x": 8.3, "y": 8.7, "facingDeg": 300 }
+      ]
+    },
+    {
+      "id": "shot_12C",
+      "label": "12C",
+      "title": "Over-the-shoulder on Maya",
+      "shotSize": "medium",
+      "linesCovered": { "start": 10, "end": 14 },
+      "note": "Favor Maya through her confession.",
+      "setup": {
+        "id": "setup_12C",
+        "x": 9.6, "y": 9.4,
+        "headingDeg": 225,
+        "lensMm": 50,
+        "height": "eye",
+        "support": "sticks",
+        "movementPath": null
+      },
+      "actors": [
+        {
+          "characterId": "maya",
+          "x": 6.0, "y": 5.0, "facingDeg": 160,
+          "path": [
+            { "beat": 1, "x": 1.6, "y": 3.4 },
+            { "beat": 2, "x": 3.9, "y": 4.3 },
+            { "beat": 3, "x": 6.0, "y": 5.0 }
+          ]
+        },
+        { "characterId": "theo", "x": 8.3, "y": 8.7, "facingDeg": 300 }
+      ]
+    },
+    {
+      "id": "shot_12D",
+      "label": "12D",
+      "title": "Close-up — Theo",
+      "shotSize": "close_up",
+      "linesCovered": { "start": 15, "end": 17 },
+      "note": "Hold on Theo's reaction, no dialogue.",
+      "setup": {
+        "id": "setup_12D",
+        "x": 3.2, "y": 6.5,
+        "headingDeg": 135,
+        "lensMm": 85,
+        "height": "eye",
+        "support": "sticks",
+        "movementPath": null
+      },
+      "actors": [
+        { "characterId": "theo", "x": 8.3, "y": 8.7, "facingDeg": 300 }
+      ]
+    },
+    {
+      "id": "shot_12E",
+      "label": "12E",
+      "title": "Dolly push — Maya stands",
+      "shotSize": "medium_wide",
+      "linesCovered": { "start": 18, "end": 20 },
+      "note": "Pushes in as Maya rises from the table.",
+      "setup": {
+        "id": "setup_12E",
+        "x": 13.0, "y": 2.7,
+        "headingDeg": 180,
+        "lensMm": 35,
+        "height": "eye",
+        "support": "dolly",
+        "movementPath": {
+          "kind": "dolly_track",
+          "points": [
+            { "x": 13.0, "y": 2.7 },
+            { "x": 19.5, "y": 2.7 }
+          ],
+          "distanceFt": 10
+        }
+      },
+      "actors": [
+        { "characterId": "maya", "x": 6.0, "y": 5.0, "facingDeg": 160 },
+        { "characterId": "theo", "x": 8.3, "y": 8.7, "facingDeg": 300 }
+      ]
+    },
+    {
+      "id": "shot_12F",
+      "label": "12F",
+      "title": "Insert — the letter",
+      "shotSize": "insert",
+      "linesCovered": { "start": 21, "end": 21 },
+      "note": "Insert on the letter left on the table.",
+      "setup": {
+        "id": "setup_12F",
+        "x": 17.8, "y": 10.6,
+        "headingDeg": 240,
+        "lensMm": 100,
+        "height": "high",
+        "support": "crane",
+        "movementPath": null
+      },
+      "actors": []
+    }
+  ]
+}
