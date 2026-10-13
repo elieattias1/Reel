@@ -163,13 +163,14 @@ export function OverheadWorkspace({ projectId, scenes, initialSceneData, initial
         setAllSetupsMode((v) => !v);
       } else if (e.key === " ") {
         e.preventDefault();
-        setPlaying((v) => !v);
+        const hasMovement = Boolean(activeShot?.setup.movementPath) || Boolean(activeShot?.actors.some((a) => (a.path?.length ?? 0) >= 2));
+        if (hasMovement) setPlaying((v) => !v);
       }
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [shots.length, changeScene]);
+  }, [shots.length, changeScene, activeShot]);
 
   if (!sceneData || shots.length === 0) {
     return (
@@ -254,6 +255,7 @@ function OverheadWorkspaceBody({
   const transition = useShotTransition(activeShot);
   const playback = usePlayMovement(activeShot, playing, onTogglePlay);
   const activeOverride = playback ?? transition;
+  const hasMovement = Boolean(activeShot.setup.movementPath) || activeShot.actors.some((a) => (a.path?.length ?? 0) >= 2);
 
   if (!sceneData.set) {
     return (
@@ -287,7 +289,13 @@ function OverheadWorkspaceBody({
             <Button size="sm" variant={allSetupsMode ? "secondary" : "outline"} onClick={onToggleAllSetups}>
               All setups
             </Button>
-            <Button size="sm" variant="ghost" onClick={onTogglePlay}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onTogglePlay}
+              disabled={!hasMovement}
+              title={hasMovement ? undefined : "This shot has no camera move or actor path to play"}
+            >
               <Play className="h-3.5 w-3.5" /> {playing ? "Stop" : "Play"}
             </Button>
           </div>

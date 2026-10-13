@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { autoCoverProjectScenes } from "@/lib/agents/auto-cover";
 import { runBreakdownAgent } from "@/lib/agents/breakdown";
 import { buildBudgetRequests, runBudgetingAgent } from "@/lib/agents/budgeting";
 import { persistBreakdown, seedSuggestedSchedule } from "@/lib/agents/persist-breakdown";
@@ -85,6 +86,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await runBudgetingAgent(projectId, budgetRequests);
 
     await supabase.from("script_versions").update({ breakdown_status: "complete" }).eq("id", scriptVersion.id);
+
+    // Fire-and-forget: drafts overhead shots for every scene, one blocking-
+    // agent turn per scene (minutes of real LLM work in total). Not
+    // awaited — the upload response shouldn't wait on it, and this only
+    // works because Reel runs on a long-lived Node server rather than a
+    // serverless platform (see README's "A note on where this needs to
+    // run"), so the process stays alive after the response is sent.
+    autoCoverProjectScenes(projectId).catch((err) => {
+      console.error("[upload] auto-cover-scenes failed:", err);
+    });
   } catch (err) {
     console.error("[upload] breakdown/budgeting pipeline failed:", err);
     await supabase
