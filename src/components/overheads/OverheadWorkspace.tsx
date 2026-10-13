@@ -11,7 +11,7 @@ import type { OverheadSceneData, OverheadSceneSummary } from "@/lib/overheads/lo
 import type { SetRow, ShotRow } from "@/lib/supabase/types";
 import { BlockingAgentPanel } from "./BlockingAgentPanel";
 import { OverheadCanvas } from "./OverheadCanvas";
-import { usePlayMovement } from "./usePlayMovement";
+import { usePlaySceneSequence } from "./usePlaySceneSequence";
 import { useShotTransition } from "./useShotTransition";
 
 interface ChatTurn {
@@ -163,14 +163,13 @@ export function OverheadWorkspace({ projectId, scenes, initialSceneData, initial
         setAllSetupsMode((v) => !v);
       } else if (e.key === " ") {
         e.preventDefault();
-        const hasMovement = Boolean(activeShot?.setup.movementPath) || Boolean(activeShot?.actors.some((a) => (a.path?.length ?? 0) >= 2));
-        if (hasMovement) setPlaying((v) => !v);
+        if (shots.length > 1) setPlaying((v) => !v);
       }
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [shots.length, changeScene, activeShot]);
+  }, [shots.length, changeScene]);
 
   if (!sceneData || shots.length === 0) {
     return (
@@ -252,10 +251,9 @@ function OverheadWorkspaceBody({
   onTogglePlay: () => void;
   shots: OverheadSceneData["shots"];
 }) {
-  const transition = useShotTransition(activeShot);
-  const playback = usePlayMovement(activeShot, playing, onTogglePlay);
-  const activeOverride = playback ?? transition;
-  const hasMovement = Boolean(activeShot.setup.movementPath) || activeShot.actors.some((a) => (a.path?.length ?? 0) >= 2);
+  const activeOverride = useShotTransition(activeShot);
+  usePlaySceneSequence(playing, shots.length, activeShotIndex, onSetActiveShotIndex, onTogglePlay);
+  const canPlay = shots.length > 1;
 
   if (!sceneData.set) {
     return (
@@ -293,8 +291,8 @@ function OverheadWorkspaceBody({
               size="sm"
               variant="ghost"
               onClick={onTogglePlay}
-              disabled={!hasMovement}
-              title={hasMovement ? undefined : "This shot has no camera move or actor path to play"}
+              disabled={!canPlay}
+              title={canPlay ? undefined : "Only one shot in this scene — nothing to step through"}
             >
               <Play className="h-3.5 w-3.5" /> {playing ? "Stop" : "Play"}
             </Button>
