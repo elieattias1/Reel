@@ -37,10 +37,21 @@ export interface ScriptVersion {
   created_at: string;
 }
 
+export type PermitStatus = "not_required" | "pending" | "approved" | "denied";
+
+/** ISO dates, half-open [start, end), validated app-side like complexity_flags. */
+export interface DateRange {
+  start: string;
+  end: string;
+}
+
 export interface LocationRow {
   id: string;
   project_id: string;
   name: string;
+  address: string | null;
+  available_date_ranges: DateRange[];
+  permit_status: PermitStatus | null;
 }
 
 export interface CharacterRow {
@@ -66,6 +77,8 @@ export interface Scene {
   synopsis: string | null;
   complexity_flags: string[];
   page_count: number | null;
+  /** Page-eighths (8 = one full page), derived from line_start/line_end. Null until breakdown computes it. */
+  eighths: number | null;
   /** 1-indexed, inclusive. Null for scenes persisted before migration 0002 and not yet backfilled. */
   line_start: number | null;
   line_end: number | null;
@@ -114,6 +127,8 @@ export interface BudgetLineRow {
   updated_at: string;
 }
 
+// superseded by ScheduleDayRow/ScheduleSceneRowV2 below — kept only until
+// every call site migrates, then delete.
 export interface ScheduleDay {
   id: string;
   project_id: string;
@@ -156,6 +171,109 @@ export interface ChangeLogEntry {
   approved_by: string | null;
   payload: Record<string, unknown>;
   created_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Scheduling v2: versioned stripboard, crew requirements, availability.
+// See supabase/migrations/0005_schedule_v2.sql.
+// ---------------------------------------------------------------------------
+
+export type ScheduleDayStatus = "draft" | "locked" | "shot";
+export type PersonType = "cast" | "crew";
+
+export interface ScheduleVersion {
+  id: string;
+  project_id: string;
+  version_number: number;
+  created_at: string;
+  created_by: string | null;
+  note: string | null;
+}
+
+export interface ScheduleDayRow {
+  id: string;
+  project_id: string;
+  schedule_version_id: string;
+  day_number: number;
+  shoot_date: string | null;
+  general_crew_call_time: string | null;
+  general_crew_wrap_time: string | null;
+  location_cluster: string | null;
+  company_move: boolean;
+  status: ScheduleDayStatus;
+  estimated_total_eighths: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScheduleSceneRowV2 {
+  schedule_day_id: string;
+  scene_id: string;
+  order_in_day: number;
+  estimated_duration_minutes: number | null;
+  locked: boolean;
+}
+
+export interface SceneCrewRequirement {
+  id: string;
+  project_id: string;
+  scene_id: string;
+  crew_role_type: string;
+  headcount: number;
+  reason: string;
+  created_at: string;
+}
+
+export interface AvailabilityRow {
+  id: string;
+  project_id: string;
+  person_type: PersonType;
+  cast_role_id: string | null;
+  crew_role_id: string | null;
+  unavailable_date_ranges: DateRange[];
+  reason: string | null;
+}
+
+export interface LocationDistanceRow {
+  id: string;
+  project_id: string;
+  location_a_id: string;
+  location_b_id: string;
+  drive_minutes: number;
+}
+
+// ---------------------------------------------------------------------------
+// Computed-not-stored: conflicts and Day-Out-of-Days. Shapes returned by
+// lib/schedule/conflicts.ts and lib/schedule/dood.ts — never persisted
+// columns; listed here only because API routes and agent tools serialize
+// them as JSON.
+// ---------------------------------------------------------------------------
+
+export type ConflictType =
+  | "double_booking"
+  | "turnaround_violation"
+  | "location_unavailable"
+  | "missing_required_crew"
+  | "minor_hours_exceeded";
+
+export interface ScheduleConflict {
+  id: string;
+  type: ConflictType;
+  severity: "warning" | "error";
+  message: string;
+  schedule_day_id?: string;
+  scene_id?: string;
+  cast_role_id?: string;
+  crew_role_id?: string;
+  location_id?: string;
+}
+
+export type DoodCellCode = "W" | "H" | "T" | "SW" | "WF";
+
+export interface DoodRow {
+  cast_role_id: string;
+  person_name: string | null;
+  cells: Record<string, DoodCellCode>;
 }
 
 // ---------------------------------------------------------------------------

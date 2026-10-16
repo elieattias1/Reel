@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { sendChatMessage } from "@/lib/agents/chat-agent";
+import { buildApprovalDiff } from "@/lib/agents/chat-tools/write";
 import { createClient } from "@/lib/supabase/server";
+import type { PendingChange } from "@/lib/supabase/types";
 
 export const maxDuration = 120;
 
@@ -60,10 +62,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .select("id")
     .single();
 
-  let pendingChanges: unknown[] = [];
+  let pendingChanges: Array<PendingChange & { diff?: { label: string; before?: string; after: string }[] }> = [];
   if (result.pendingChangeIds.length > 0) {
     const { data } = await supabase.from("pending_changes").select("*").in("id", result.pendingChangeIds);
-    pendingChanges = data ?? [];
+    pendingChanges = await Promise.all(
+      (data ?? []).map(async (change) => ({
+        ...change,
+        // Re-derived fresh at response time (presentation-only enrichment),
+        // not stored — pending_changes.description stays the durable text.
+        diff: await buildApprovalDiff(supabase, projectId, change.tool_name, change.proposed_input as Record<string, unknown>),
+      }))
+    );
   }
 
   return NextResponse.json({

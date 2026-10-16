@@ -32,18 +32,23 @@ export async function persistBreakdown(
 
   const lineRanges = await resolveSceneLineRanges(rawText, breakdown.scenes);
 
-  const sceneRows = breakdown.scenes.map((s, i) => ({
-    script_version_id: scriptVersionId,
-    project_id: projectId,
-    scene_number: s.scene_number,
-    int_ext: s.int_ext,
-    day_night: s.day_night,
-    primary_location_id: locationIdByName.get(s.location) ?? null,
-    synopsis: s.synopsis,
-    complexity_flags: s.complexity_flags,
-    line_start: lineRanges[i]?.start ?? null,
-    line_end: lineRanges[i]?.end ?? null,
-  }));
+  const sceneRows = breakdown.scenes.map((s, i) => {
+    const eighths = computeEighths(lineRanges[i]);
+    return {
+      script_version_id: scriptVersionId,
+      project_id: projectId,
+      scene_number: s.scene_number,
+      int_ext: s.int_ext,
+      day_night: s.day_night,
+      primary_location_id: locationIdByName.get(s.location) ?? null,
+      synopsis: s.synopsis,
+      complexity_flags: s.complexity_flags,
+      line_start: lineRanges[i]?.start ?? null,
+      line_end: lineRanges[i]?.end ?? null,
+      eighths,
+      page_count: eighths !== null ? eighths / 8 : null,
+    };
+  });
 
   const { data: insertedScenes, error: sceneError } = await supabase
     .from("scenes")
@@ -52,6 +57,16 @@ export async function persistBreakdown(
   if (sceneError) throw sceneError;
 
   const sceneIdByNumber = new Map(insertedScenes!.map((s) => [s.scene_number, s.id]));
+
+  const castCountByScene = new Map(breakdown.scenes.map((s) => [s.scene_number, s.characters.length]));
+  const crewRequirementRows = breakdown.scenes.flatMap((s) => {
+    const sceneId = sceneIdByNumber.get(s.scene_number);
+    if (!sceneId) return [];
+    return mapComplexityFlagsToCrewRequirements(s.complexity_flags, castCountByScene.get(s.scene_number) ?? 0).map(
+      (req) => ({ project_id: projectId, scene_id: sceneId, ...req })
+    );
+  });
+  if (crewRequirementRows.length) await supabase.from("scene_crew_requirements").insert(crewRequirementRows);
 
   const sceneCharacterRows: { scene_id: string; character_id: string }[] = [];
   const scenePropRows: { scene_id: string; prop_id: string }[] = [];
@@ -129,6 +144,58 @@ async function resolveSceneLineRanges(
   }
 }
 
+/**
+ * Industry convention: a script page is 8 eighths; at roughly 55 lines per
+ * standard screenplay page, each eighth is ~7 lines. Scenes without a
+ * resolved line range (heading-detection failure, not yet backfilled) get
+ * null rather than a guessed value.
+ */
+export function computeEighths(range: LineRange | null): number | null {
+  if (!range) return null;
+  const lines = range.end - range.start + 1;
+  return Math.max(1, Math.round((lines / 55) * 8));
+}
+
+/**
+ * Maps a scene's complexity_flags (breakdown.ts's closed vocabulary) to the
+ * specialized crew a 1st AD would need to confirm before shooting it. Pure
+ * and deterministic so the conflict rail's "missing_required_crew" check and
+ * the chat agent's get_day tool see the same requirements persist-breakdown
+ * derived at upload time — these aren't hand-entered.
+ */
+export function mapComplexityFlagsToCrewRequirements(
+  flags: string[],
+  castCount: number
+): { crew_role_type: string; headcount: number; reason: string }[] {
+  const requirements: { crew_role_type: string; headcount: number; reason: string }[] = [];
+  const add = (flag: string, crewRoleType: string, headcount: number, note: string) => {
+    if (flags.includes(flag)) {
+      requirements.push({ crew_role_type: crewRoleType, headcount, reason: `${note} — scene flagged ${flag}` });
+    }
+  };
+
+  add("stunts", "stunt_coordinator", 1, "stunt coordinator × 1");
+  add("vfx", "vfx_supervisor", 1, "VFX supervisor × 1");
+  add("animals", "animal_wrangler", 1, "animal wrangler × 1");
+  add("minors", "studio_teacher", 1, "studio teacher × 1 (minor welfare requirement)");
+  add("fire", "sfx_supervisor", 1, "SFX supervisor × 1");
+  add("water", "safety_diver", 1, "safety diver/water safety × 1");
+  add("weapons", "armorer", 1, "armorer × 1");
+  add("vehicles", "transportation_captain", 1, "transportation captain × 1");
+  if (flags.includes("crowd")) {
+    const headcount = Math.max(2, Math.ceil(castCount / 10));
+    requirements.push({
+      crew_role_type: "additional_pa",
+      headcount,
+      reason: `additional PAs × ${headcount} — scene flagged crowd`,
+    });
+  }
+  // `large_cast`/`night_exterior` inform other estimates, not a dedicated
+  // crew requirement — intentionally no entry for either.
+
+  return requirements;
+}
+
 async function upsertNamed(
   supabase: SupabaseClient,
   table: "locations" | "characters" | "props",
@@ -177,20 +244,35 @@ export async function seedSuggestedSchedule(
     return a.scene_number - b.scene_number;
   });
 
+  const { data: version, error: versionError } = await supabase
+    .from("schedule_versions")
+    .insert({ project_id: projectId, version_number: 1, note: "Suggested order from upload" })
+    .select("id")
+    .single();
+  if (versionError) throw versionError;
+
   const dayCount = Math.ceil(sorted.length / scenesPerDay);
   const { data: days, error } = await supabase
     .from("schedule_days")
-    .insert(Array.from({ length: dayCount }, (_, i) => ({ project_id: projectId, day_number: i + 1 })))
+    .insert(
+      Array.from({ length: dayCount }, (_, i) => ({
+        project_id: projectId,
+        schedule_version_id: version!.id,
+        day_number: i + 1,
+      }))
+    )
     .select("id, day_number")
     .order("day_number");
   if (error) throw error;
 
   const scheduleRows = sorted.map((scene, i) => {
     const dayIndex = Math.floor(i / scenesPerDay);
+    const position = i % scenesPerDay;
     return {
       schedule_day_id: days![dayIndex].id,
       scene_id: scene.id,
-      position: i % scenesPerDay,
+      position,
+      order_in_day: position,
     };
   });
   await supabase.from("schedule_scenes").insert(scheduleRows);

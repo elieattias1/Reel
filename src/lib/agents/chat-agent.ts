@@ -1,129 +1,22 @@
-import { createSdkMcpServer, query, tool, type CanUseTool } from "@anthropic-ai/claude-agent-sdk";
-import { z } from "zod";
+import { createSdkMcpServer, query, type CanUseTool } from "@anthropic-ai/claude-agent-sdk";
+import { buildReadTools, READ_TOOL_NAMES } from "@/lib/agents/chat-tools/read";
+import { buildWriteTools, WRITE_TOOL_INFO } from "@/lib/agents/chat-tools/write";
 import { createServiceClient } from "@/lib/supabase/service";
-
-const READ_TOOLS = [
-  "mcp__reel__get_scenes",
-  "mcp__reel__get_budget",
-  "mcp__reel__get_schedule",
-  "mcp__reel__get_cast_crew",
-];
-
-const WRITE_TOOL_INFO: Record<string, (input: Record<string, unknown>) => { title: string; description: string }> = {
-  mcp__reel__propose_budget_change: (input) => ({
-    title: `Change budget line to $${input.new_amount}`,
-    description: String(input.reason ?? "The agent proposes updating a budget line."),
-  }),
-  mcp__reel__propose_schedule_change: (input) => ({
-    title: `Move scene to day ${input.target_day_number}`,
-    description: String(input.reason ?? "The agent proposes rescheduling a scene."),
-  }),
-  mcp__reel__propose_crew_change: (input) => ({
-    title: `Confirm ${input.role_table === "cast_roles" ? "cast" : "crew"} role`,
-    description: String(input.reason ?? "The agent proposes confirming a cast/crew role with a named person."),
-  }),
-};
 
 /**
  * Builds the in-process SDK MCP server exposing this project's data to the
- * Reel chat agent: read tools the model can call freely, and write tools
- * that only ever get as far as `canUseTool` (see buildCanUseTool below) —
- * they never actually execute against the database from inside the agent
- * turn. Approval is handled out-of-band by the application once the
- * producer clicks Approve on the resulting ApprovalCard.
+ * Reel chat agent: read tools the model can call freely (chat-tools/read.ts),
+ * and write tools that only ever get as far as `canUseTool` (see
+ * buildCanUseTool below) — they never actually execute against the database
+ * from inside the agent turn. Approval is handled out-of-band by the
+ * application once the producer clicks Approve on the resulting
+ * ApprovalCard.
  */
 export function buildReelMcpServer(projectId: string) {
-  const supabase = createServiceClient();
-
   return createSdkMcpServer({
     name: "reel",
-    version: "0.1.0",
-    tools: [
-      tool(
-        "get_scenes",
-        "Get every scene in the project's current script breakdown, including int/ext, day/night, location, characters, props, and complexity flags.",
-        {},
-        async () => {
-          const { data } = await supabase
-            .from("scenes")
-            .select("*, scene_characters(characters(name)), scene_props(props(name)), locations:primary_location_id(name)")
-            .eq("project_id", projectId)
-            .order("scene_number");
-          return { content: [{ type: "text", text: JSON.stringify(data ?? []) }] };
-        }
-      ),
-      tool(
-        "get_budget",
-        "Get every budget line for the project: category, description, amount, source, and confidence.",
-        {},
-        async () => {
-          const { data } = await supabase.from("budget_lines").select("*").eq("project_id", projectId);
-          return { content: [{ type: "text", text: JSON.stringify(data ?? []) }] };
-        }
-      ),
-      tool(
-        "get_schedule",
-        "Get the project's suggested shoot schedule: days and the scenes assigned to each.",
-        {},
-        async () => {
-          const { data } = await supabase
-            .from("schedule_days")
-            .select("*, schedule_scenes(scene_id, position)")
-            .eq("project_id", projectId)
-            .order("day_number");
-          return { content: [{ type: "text", text: JSON.stringify(data ?? []) }] };
-        }
-      ),
-      tool(
-        "get_cast_crew",
-        "Get the project's cast and crew roles, both AI-projected and producer-confirmed.",
-        {},
-        async () => {
-          const [cast, crew] = await Promise.all([
-            supabase.from("cast_roles").select("*").eq("project_id", projectId),
-            supabase.from("crew_roles").select("*").eq("project_id", projectId),
-          ]);
-          return {
-            content: [
-              { type: "text", text: JSON.stringify({ cast: cast.data ?? [], crew: crew.data ?? [] }) },
-            ],
-          };
-        }
-      ),
-      tool(
-        "propose_budget_change",
-        "Propose changing the amount of an existing budget line. Never commits directly — the producer must approve the resulting pending-change card.",
-        {
-          budget_line_id: z.string().describe("id of the budget_lines row to change"),
-          new_amount: z.number().describe("the proposed new total amount in USD"),
-          reason: z.string().describe("one sentence explaining why this change is proposed"),
-        },
-        async () => ({ content: [{ type: "text", text: "Proposal recorded; awaiting producer approval." }] })
-      ),
-      tool(
-        "propose_schedule_change",
-        "Propose moving a scene to a different shoot day. Never commits directly.",
-        {
-          scene_id: z.string(),
-          target_day_number: z.number().int(),
-          reason: z.string(),
-        },
-        async () => ({ content: [{ type: "text", text: "Proposal recorded; awaiting producer approval." }] })
-      ),
-      tool(
-        "propose_crew_change",
-        "Propose confirming a cast or crew role with a named person, contact, and rate. Never commits directly.",
-        {
-          role_table: z.enum(["cast_roles", "crew_roles"]),
-          role_id: z.string(),
-          person_name: z.string(),
-          contact: z.string().optional(),
-          rate: z.number().optional(),
-          reason: z.string(),
-        },
-        async () => ({ content: [{ type: "text", text: "Proposal recorded; awaiting producer approval." }] })
-      ),
-    ],
+    version: "0.2.0",
+    tools: [...buildReadTools(projectId), ...buildWriteTools()],
   });
 }
 
@@ -138,14 +31,14 @@ export function buildReelMcpServer(projectId: string) {
  */
 export function buildCanUseTool(projectId: string, chatSessionId: string | null, onPending: (id: string) => void): CanUseTool {
   return async (toolName, input) => {
-    if (toolName === "WebSearch" || READ_TOOLS.includes(toolName)) {
+    if (toolName === "WebSearch" || READ_TOOL_NAMES.includes(toolName)) {
       return { behavior: "allow" };
     }
 
     const describe = WRITE_TOOL_INFO[toolName];
     if (describe) {
-      const { title, description } = describe(input);
       const supabase = createServiceClient();
+      const { title, description } = await describe(input, { supabase, projectId });
       const { data } = await supabase
         .from("pending_changes")
         .insert({
@@ -202,11 +95,11 @@ export async function sendChatMessage(
       resume: opts.resumeSessionId ?? undefined,
       forkSession: opts.fork ?? false,
       mcpServers: { reel: server },
-      allowedTools: ["WebSearch", ...READ_TOOLS],
+      allowedTools: ["WebSearch", ...READ_TOOL_NAMES],
       canUseTool,
       model: process.env.REEL_CHAT_MODEL || "claude-sonnet-4-5",
       systemPrompt:
-        "You are the Reel chat agent for an independent film producer. You have full read access to this project's script breakdown, budget, schedule, and cast/crew via your tools. Answer questions precisely and cite the data you pulled. When the producer's request implies a change to budget, schedule, or cast/crew, use the matching propose_* tool rather than describing the change in prose only — the producer approves or rejects it from a card in the UI. Never claim a change has been made; it has only been proposed until approved.",
+        "You are the Reel chat agent for an independent film producer. You have full read access to this project's script breakdown, budget, schedule (stripboard), Day-Out-of-Days, and cast/crew via your tools. Answer questions precisely and cite the data you pulled. Before using any propose_* tool for a schedule change, call check_conflicts and preview_impact yourself first and reference what you found in your `reason` argument — the producer should see the consequence of a change, not just the raw fields being changed. When one request implies more than one write (e.g. moving a scene and reassigning the crew it now needs), use propose_change_bundle instead of separate propose_* calls, so the producer approves it as one atomic unit. Never claim a change has been made; it has only been proposed until approved.",
     },
   })) {
     const m = msg as { type: string; subtype?: string; message?: { content?: Array<{ type: string; text?: string }> }; session_id?: string; result?: string };

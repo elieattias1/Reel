@@ -12,6 +12,7 @@ interface PendingChange {
   title: string;
   description: string;
   status: "pending" | "approved" | "rejected";
+  diff?: { label: string; before?: string; after: string }[];
 }
 
 interface Turn {
@@ -59,6 +60,7 @@ export function ChatPanel({ projectId, initialHistory }: { projectId: string; in
           title: p.title,
           description: p.description,
           status: p.status,
+          diff: p.diff,
         })),
       },
     ]);
@@ -100,6 +102,7 @@ export function ChatPanel({ projectId, initialHistory }: { projectId: string; in
                 <ApprovalCard
                   title={change.title}
                   description={change.description}
+                  diff={change.diff}
                   status={change.status}
                   onApprove={() => resolve(turn.id, change.id, "approved")}
                   onReject={() => resolve(turn.id, change.id, "rejected")}

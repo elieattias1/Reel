@@ -9,6 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "backfill:lines": "tsx scripts/backfill-scene-lines.ts",
+    "backfill:eighths": "tsx scripts/backfill-scene-eighths.ts",
+    "backfill:crew-requirements": "tsx scripts/backfill-scene-crew-requirements.ts",
     "auto-cover": "tsx scripts/auto-cover-scenes.ts"
   },
   "dependencies": {
