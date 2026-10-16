@@ -2,6 +2,7 @@ import { Users } from "lucide-react";
 import { EmptyState } from "@/components/reel/EmptyState";
 import { Panel, PanelHeader } from "@/components/reel/Panel";
 import { createClient } from "@/lib/supabase/server";
+import { AddRoleForm } from "./AddRoleForm";
 import { RoleRow, type RoleRowData } from "./RoleRow";
 
 export default async function CastCrewPage({ params }: { params: Promise<{ id: string }> }) {
@@ -17,7 +18,6 @@ export default async function CastCrewPage({ params }: { params: Promise<{ id: s
     id: c.id,
     table: "cast_roles",
     title: c.role_name,
-    source: c.source,
     person_name: c.person_name,
     contact: c.contact,
     rate: c.rate,
@@ -28,26 +28,20 @@ export default async function CastCrewPage({ params }: { params: Promise<{ id: s
     table: "crew_roles",
     title: c.role_type,
     headcount: c.headcount,
-    source: c.source,
     person_name: c.person_name,
     contact: c.contact,
     rate: c.rate,
   }));
 
-  if (castRows.length === 0 && crewRows.length === 0) {
-    return (
-      <div className="mx-auto max-w-3xl px-6 py-10">
+  return (
+    <div className="mx-auto max-w-3xl space-y-6 px-6 py-10">
+      {castRows.length === 0 && crewRows.length === 0 && (
         <EmptyState
           icon={<Users className="h-6 w-6" />}
           title="No cast or crew yet"
-          description="Upload a script on the Script tab to get a projected cast and crew list."
+          description="Upload a script on the Script tab to get a projected cast and crew list, or add roles by hand below."
         />
-      </div>
-    );
-  }
-
-  return (
-    <div className="mx-auto max-w-3xl space-y-6 px-6 py-10">
+      )}
       <section>
         <Panel>
           <PanelHeader>
@@ -56,6 +50,7 @@ export default async function CastCrewPage({ params }: { params: Promise<{ id: s
           {castRows.map((r) => (
             <RoleRow key={r.id} role={r} projectId={projectId} />
           ))}
+          <AddRoleForm table="cast_roles" projectId={projectId} placeholder="Add cast member" />
         </Panel>
       </section>
       <section>
@@ -66,6 +61,7 @@ export default async function CastCrewPage({ params }: { params: Promise<{ id: s
           {crewRows.map((r) => (
             <RoleRow key={r.id} role={r} projectId={projectId} />
           ))}
+          <AddRoleForm table="crew_roles" projectId={projectId} placeholder="Add crew role" />
         </Panel>
       </section>
     </div>
